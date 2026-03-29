@@ -1,4 +1,4 @@
-# https://github.com/fsnotify/fsnotify/issues/277
+# https://github.com/aperturerobotics/fsnotify/issues/277
 require symlink
 
 touch /file1

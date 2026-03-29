@@ -1,6 +1,6 @@
 package main
 
-import "github.com/fsnotify/fsnotify"
+import "github.com/aperturerobotics/fsnotify"
 
 // This is the most basic example: it prints events to the terminal as we
 // receive them.

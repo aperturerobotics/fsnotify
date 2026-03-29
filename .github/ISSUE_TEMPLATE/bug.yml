@@ -42,5 +42,5 @@ body:
     validations: {"required": true}
     attributes:
       label: 'Did you try the latest main branch?'
-      description: 'Please try the latest main branch as well, with e.g.:<br>`go get github.com/fsnotify/fsnotify@main`'
+      description: 'Please try the latest main branch as well, with e.g.:<br>`go get github.com/aperturerobotics/fsnotify@main`'
       options: ['No', 'Yes']

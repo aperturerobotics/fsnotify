@@ -12,7 +12,7 @@ var usage = `
 fsnotify is a Go library to provide cross-platform file system notifications.
 This command serves as an example and debugging tool.
 
-https://github.com/fsnotify/fsnotify
+https://github.com/aperturerobotics/fsnotify
 
 Commands:
 
