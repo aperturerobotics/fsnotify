@@ -246,10 +246,15 @@ func (w *kqueue) Close() error {
 		return nil
 	}
 
-	pathsToRemove := w.watches.listPaths(false)
-	for _, name := range pathsToRemove {
-		w.Remove(name)
+	// Close all watch file descriptors directly. We cannot use Remove()
+	// here because shared.close() above already marked the watcher as
+	// closed, causing remove() to short-circuit on isClosed() without
+	// closing any descriptors.
+	w.watches.mu.Lock()
+	for fd := range w.watches.wd {
+		unix.Close(fd)
 	}
+	w.watches.mu.Unlock()
 
 	unix.Close(w.closepipe[1]) // Send "quit" message to readEvents
 	return nil
