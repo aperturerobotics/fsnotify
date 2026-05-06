@@ -6,8 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -231,7 +231,10 @@ func TestClose(t *testing.T) {
 		}
 
 		if err := w.Add(t.TempDir()); err == nil {
-			t.Fatal("expected error on Watch() after Close(), got nil")
+			t.Fatal("no error on Add() after Close()")
+		}
+		if err := w.Remove(t.TempDir()); err != nil {
+			t.Fatalf("error on Remove() after Close(): %s", err)
 		}
 	})
 
@@ -250,11 +253,7 @@ func TestClose(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// TODO: windows backend doesn't work well here; can't easily fix it.
-		//       Need to rewrite things a bit.
-		if runtime.GOOS != "windows" {
-			chanClosed(t, w)
-		}
+		chanClosed(t, w)
 	})
 
 	// Make sure that calling Close() while REMOVE events are emitted doesn't race.
@@ -263,7 +262,7 @@ func TestClose(t *testing.T) {
 		tmp := t.TempDir()
 
 		files := make([]string, 0, 200)
-		for i := 0; i < 200; i++ {
+		for i := range 200 {
 			f := join(tmp, fmt.Sprintf("file-%03d", i))
 			touch(t, f, noWait)
 			files = append(files, f)
@@ -310,7 +309,7 @@ func TestClose(t *testing.T) {
 		t.Run("default", func(t *testing.T) {
 			t.Parallel()
 
-			for i := 0; i < 150; i++ {
+			for range 150 {
 				w, err := NewWatcher()
 				if err != nil {
 					if strings.Contains(err.Error(), "too many") { // syscall.EMFILE
@@ -327,7 +326,7 @@ func TestClose(t *testing.T) {
 		t.Run("buffered=4096", func(t *testing.T) {
 			t.Parallel()
 
-			for i := 0; i < 150; i++ {
+			for range 150 {
 				w, err := NewBufferedWatcher(4096)
 				if err != nil {
 					if strings.Contains(err.Error(), "too many") { // syscall.EMFILE
@@ -572,7 +571,7 @@ func TestAdd(t *testing.T) {
 		{
 			have, want := w.WatchList(), []string{join(tmp, "/dir1"), join(tmp, "/dir2")}
 			sort.Strings(have)
-			if !reflect.DeepEqual(have, want) {
+			if !slices.Equal(have, want) {
 				t.Errorf("\nhave: %s\nwant: %s", have, want)
 			}
 		}
@@ -582,7 +581,7 @@ func TestAdd(t *testing.T) {
 		{
 			have, want := w.WatchList(), []string{join(tmp, "/dir2")}
 			sort.Strings(have)
-			if !reflect.DeepEqual(have, want) {
+			if !slices.Equal(have, want) {
 				t.Errorf("\nhave: %s\nwant: %s", have, want)
 			}
 		}
@@ -735,7 +734,7 @@ func TestRemove(t *testing.T) {
 		tmp := t.TempDir()
 		touch(t, tmp, "file")
 
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			w := newWatcher(t)
 			defer w.Close()
 			addWatch(t, w, tmp)
@@ -817,6 +816,19 @@ func TestRemove(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+
+	t.Run("... gives error if not watched", func(t *testing.T) {
+		supportsRecurse(t)
+		t.Parallel()
+
+		tmp := t.TempDir()
+		w := newWatcher(t)
+		defer w.Close()
+
+		if err := w.Remove(join(tmp, "...")); err == nil {
+			t.Fatal("err was nil")
+		}
+	})
 }
 
 func TestEventString(t *testing.T) {
@@ -848,24 +860,58 @@ func TestEventString(t *testing.T) {
 }
 
 func TestWatchList(t *testing.T) {
-	t.Parallel()
+	t.Run("works", func(t *testing.T) {
+		t.Parallel()
 
-	tmp := t.TempDir()
-	file := join(tmp, "file")
-	other := join(tmp, "other")
+		tmp := t.TempDir()
+		file := join(tmp, "file")
+		other := join(tmp, "other")
 
-	touch(t, file)
-	touch(t, other)
+		touch(t, file)
+		touch(t, other)
 
-	w := newWatcher(t, file, tmp)
-	defer w.Close()
+		w := newWatcher(t, file, tmp)
+		defer w.Close()
 
-	have := w.WatchList()
-	sort.Strings(have)
-	want := []string{tmp, file}
-	if !reflect.DeepEqual(have, want) {
-		t.Errorf("\nhave: %s\nwant: %s", have, want)
-	}
+		have := w.WatchList()
+		sort.Strings(have)
+		want := []string{tmp, file}
+		if !slices.Equal(have, want) {
+			t.Errorf("\nhave: %s\nwant: %s", have, want)
+		}
+	})
+
+	t.Run("race", func(t *testing.T) {
+		t.Parallel()
+
+		tmp := t.TempDir()
+
+		w := newWatcher(t, tmp)
+		defer w.Close()
+
+		stop := make(chan struct{})
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					// Just make sure it doesn't race, don't need to checkout output.
+					_ = w.WatchList()
+				}
+			}
+		}()
+
+		for i := range 50 {
+			dir := filepath.Join(tmp, fmt.Sprintf("d%d", i))
+			mkdir(t, dir)
+			addWatch(t, w, dir)
+		}
+		close(stop)
+		<-done
+	})
 }
 
 func TestOpHas(t *testing.T) {
@@ -1044,7 +1090,7 @@ func TestRace(t *testing.T) {
 			wg  sync.WaitGroup
 		)
 		wg.Add(400)
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			go func() { defer wg.Done(); os.MkdirAll(dir, 0o0755) }()
 			go func() { defer wg.Done(); os.RemoveAll(dir) }()
 			go func() { defer wg.Done(); w.w.Add(dir) }()
@@ -1118,7 +1164,7 @@ func TestRace(t *testing.T) {
 		)
 		w.w.Add(dir)
 		wg.Add(2000)
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			go func() { defer wg.Done(); os.RemoveAll(dir) }()
 			go func() { defer wg.Done(); os.MkdirAll(dir, 0o0755) }()
 			w.w.Add(dir)
@@ -1163,7 +1209,7 @@ func TestNewWatcher(t *testing.T) {
 func TestFileCreateWriteRace(t *testing.T) {
 	// Run the test multiple times to trigger the race.
 	const attempts = 100
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		dir := filepath.Join(t.TempDir(), fmt.Sprintf("watch-dir-%d", i))
 		if err := os.Mkdir(dir, 0o755); err != nil {
 			t.Fatalf("mkdir: %v", err)

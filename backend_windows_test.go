@@ -1,5 +1,9 @@
 //go:build windows
 
+// Note: do not add a test here unless the behaviour is truly specific to this
+// backend. fsnotify is a cross-platform library: most tests should be as a
+// "script" in testdata/ or in fsnotify_test.go. See CONTRIBUTING.md.
+
 package fsnotify
 
 import (
@@ -53,6 +57,14 @@ func TestRemoveState(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(0)
+
+	// Make sure Close() cleans up everything.
+	addWatch(t, w, tmp)
+	addWatch(t, w, file)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	check(0)
 }
 
 func TestWindowsRemWatch(t *testing.T) {
@@ -65,9 +77,9 @@ func TestWindowsRemWatch(t *testing.T) {
 
 	addWatch(t, w, tmp)
 	if err := w.Remove(tmp); err != nil {
-		t.Fatalf("Could not remove the watch: %v\n", err)
+		t.Fatalf("Could not remove the watch: %v", err)
 	}
 	if err := w.b.(*readDirChangesW).remWatch(tmp); err == nil {
-		t.Fatal("Should be fail with closed handle\n")
+		t.Fatal("Should be fail with closed handle")
 	}
 }

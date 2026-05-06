@@ -1,5 +1,9 @@
 //go:build freebsd || openbsd || netbsd || dragonfly || darwin
 
+// Note: do not add a test here unless the behaviour is truly specific to this
+// backend. fsnotify is a cross-platform library: most tests should be as a
+// "script" in testdata/ or in fsnotify_test.go. See CONTRIBUTING.md.
+
 package fsnotify
 
 import (
@@ -92,4 +96,12 @@ func TestRemoveState(t *testing.T) {
 			return
 		}
 	}
+
+	// Make sure Close() cleans up everything.
+	addWatch(t, w, tmp)
+	addWatch(t, w, file)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	check(0, 0)
 }

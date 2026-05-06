@@ -246,15 +246,9 @@ func (w *kqueue) Close() error {
 		return nil
 	}
 
-	// Close all watch file descriptors directly. We cannot use Remove()
-	// here because shared.close() above already marked the watcher as
-	// closed, causing remove() to short-circuit on isClosed() without
-	// closing any descriptors.
-	w.watches.mu.Lock()
-	for fd := range w.watches.wd {
-		unix.Close(fd)
+	for _, name := range w.watches.listPaths(false) {
+		w.remove2(name, true)
 	}
-	w.watches.mu.Unlock()
 
 	unix.Close(w.closepipe[1]) // Send "quit" message to readEvents
 	return nil
@@ -293,7 +287,11 @@ func (w *kqueue) remove(name string, unwatchFiles bool) error {
 	if w.isClosed() {
 		return nil
 	}
+	return w.remove2(name, unwatchFiles)
+}
 
+// remove() but without checking isClosed
+func (w *kqueue) remove2(name string, unwatchFiles bool) error {
 	name = filepath.Clean(name)
 	info, ok := w.watches.byPath(name)
 	if !ok {
@@ -311,12 +309,11 @@ func (w *kqueue) remove(name string, unwatchFiles bool) error {
 
 	// Find all watched paths that are in this directory that are not external.
 	if unwatchFiles && isDir {
-		pathsToRemove := w.watches.watchesInDir(name)
-		for _, name := range pathsToRemove {
+		for _, name := range w.watches.watchesInDir(name) {
 			// Since these are internal, not much sense in propagating error to
 			// the user, as that will just confuse them with an error about a
 			// path they did not explicitly watch themselves.
-			w.Remove(name)
+			w.remove2(name, false)
 		}
 	}
 	return nil
@@ -583,12 +580,12 @@ func (w *kqueue) watchDirectoryFiles(dirPath string) error {
 
 		cleanPath, err := w.internalWatch(path, fi)
 		if err != nil {
-			// No permission to read the file; that's not a problem: just skip.
-			// But do add it to w.fileExists to prevent it from being picked up
-			// as a "new" file later (it still shows up in the directory
-			// listing).
+			// No permission, entry resolved to a missing target (e.g. a
+			// dangling symlink), or doesn't exist: not a problem, just skip.
+			// But do mark it as seen to prevent it from being picked up as a
+			// "new" file later (it still shows up in the directory listing).
 			switch {
-			case errors.Is(err, unix.EACCES) || errors.Is(err, unix.EPERM):
+			case errors.Is(err, unix.EACCES) || errors.Is(err, unix.EPERM) || errors.Is(err, os.ErrNotExist):
 				cleanPath = filepath.Clean(path)
 			default:
 				return fmt.Errorf("%q: %w", path, err)

@@ -16,7 +16,7 @@ This is a fork of [fsnotify/fsnotify][upstream] with the following fixes:
 fsnotify is a Go library to provide cross-platform filesystem notifications on
 Windows, Linux, macOS, BSD, and illumos.
 
-Go 1.17 or newer is required; the full documentation is at
+Go 1.23 or newer is required; the full documentation is at
 https://pkg.go.dev/github.com/aperturerobotics/fsnotify
 
 ---
@@ -184,7 +184,6 @@ distro's documentation):
 
     fs.inotify.max_user_watches=200000
     fs.inotify.max_user_instances=256
-
 
 ### kqueue (macOS, all BSD systems)
 kqueue requires opening a file descriptor for every file that's being watched;

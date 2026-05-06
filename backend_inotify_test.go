@@ -1,5 +1,9 @@
 //go:build linux
 
+// Note: do not add a test here unless the behaviour is truly specific to this
+// backend. fsnotify is a cross-platform library: most tests should be as a
+// "script" in testdata/ or in fsnotify_test.go. See CONTRIBUTING.md.
+
 package fsnotify
 
 import (
@@ -49,6 +53,14 @@ func TestRemoveState(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(0)
+
+	// Make sure Close() cleans up everything.
+	addWatch(t, w, tmp)
+	addWatch(t, w, file)
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	check(0)
 }
 
 // Ensure that the correct error is returned on overflows.
@@ -66,7 +78,7 @@ func TestInotifyOverflow(t *testing.T) {
 	// All events need to be in the inotify queue before pulling events off it
 	// to trigger this error.
 	var wg sync.WaitGroup
-	for i := 0; i < numDirs; i++ {
+	for i := range numDirs {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

@@ -91,11 +91,6 @@ import (
 // directory itself, but may not send events for all files in that directory.
 // Sometimes it will send events for all files, sometimes it will send no
 // events, and often only for some files.
-//
-// The default ReadDirectoryChangesW() buffer size is 64K, which is the largest
-// value that is guaranteed to work with SMB filesystems. If you have many
-// events in quick succession this may not be enough, and you will have to use
-// [WithBufferSize] to increase the value.
 type Watcher struct {
 	b backend
 
@@ -128,8 +123,8 @@ type Watcher struct {
 	//                      want to wait until you've stopped receiving them
 	//                      (see the dedup example in cmd/fsnotify).
 	//
-	//                      Some systems may send Write event for directories
-	//                      when the directory content changes.
+	//                      Some systems also send Write events for directories
+	//                      when the directory contents changes.
 	//
 	//   fsnotify.Chmod     Attributes were changed. On Linux this is also sent
 	//                      when a file is removed (or more accurately, when a
@@ -485,6 +480,13 @@ func recursivePath(path string) (string, bool) {
 		return filepath.Dir(path), true
 	}
 	return path, false
+}
+
+func hasPathPrefix(path, root string) bool {
+	if path == root {
+		return true
+	}
+	return strings.HasPrefix(path, root+string(os.PathSeparator))
 }
 
 type watchFlag uint8
