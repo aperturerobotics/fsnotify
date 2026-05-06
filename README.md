@@ -1,13 +1,16 @@
-This is a fork of [fsnotify/fsnotify][upstream] with the following fixes:
+This is a fork of [fsnotify/fsnotify][upstream] using the module path
+`github.com/aperturerobotics/fsnotify`.
 
-- **kqueue Close() fd leak**: `Close()` marked the watcher as closed before
-  iterating the remove loop, causing `remove()` to short-circuit on
-  `isClosed()` without closing any file/directory watch descriptors. Every
-  `Close()` call leaked all watched fds. Fixed by closing watch descriptors
-  directly in `Close()`.
-- **kqueue create+write race**: Reordered `sendCreateIfNew` to register the
-  kqueue watch before sending the CREATE event, preventing missed WRITE
-  notifications when a file is removed and re-created with content.
+Fork status versus upstream:
+
+- **Still carried here: kqueue create+write race**. This fork registers the
+  kqueue watch before sending the `CREATE` event in `sendCreateIfNew`,
+  preventing missed `WRITE` notifications when a file is removed and recreated
+  with content. The regression test is `TestFileCreateWriteRace`.
+- **No longer fork-only: kqueue `Close()` fd leak**. This fork previously fixed
+  leaked kqueue watch descriptors on `Close()`. Upstream now handles this by
+  calling `remove2()` from `Close()`, so the merged fork follows the upstream
+  implementation.
 
 [upstream]: https://github.com/fsnotify/fsnotify
 
