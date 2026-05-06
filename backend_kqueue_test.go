@@ -1,4 +1,4 @@
-//go:build freebsd || openbsd || netbsd || dragonfly || darwin
+//go:build freebsd || openbsd || netbsd || dragonfly || (darwin && !cgo)
 
 // Note: do not add a test here unless the behaviour is truly specific to this
 // backend. fsnotify is a cross-platform library: most tests should be as a
