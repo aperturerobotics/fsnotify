@@ -151,3 +151,71 @@ func TestInotifyDeleteOpenFile(t *testing.T) {
 	e = w.stop(t)
 	cmpEvents(t, tmp, e, newEvents(t, `remove /file`))
 }
+
+// Close must not touch watches after it closes the inotify descriptor: the
+// kernel may already have handed the same descriptor number to another
+// watcher, and removing a watch descriptor on it would silently unwatch that
+// watcher's first directory.
+func TestInotifyCloseKeepsOtherWatchers(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+
+	var (
+		wg   sync.WaitGroup
+		stop = make(chan struct{})
+	)
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				w, err := NewWatcher()
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				if err := w.Add(tmp); err != nil {
+					t.Error(err)
+				}
+				if err := w.Close(); err != nil {
+					t.Error(err)
+				}
+			}
+		}()
+	}
+	defer func() {
+		close(stop)
+		wg.Wait()
+	}()
+
+	for i := 0; i < 300; i++ {
+		dir := join(t.TempDir(), "dir")
+		mkdir(t, dir)
+
+		w, err := NewWatcher()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Add(dir); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(join(dir, "file"), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case <-w.Events:
+		case err := <-w.Errors:
+			t.Fatal(err)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("iteration %d: no event for a file created in a watched directory", i)
+		}
+		w.Close()
+	}
+}

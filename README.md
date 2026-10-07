@@ -7,6 +7,11 @@ Fork status versus upstream:
   kqueue watch before sending the `CREATE` event in `sendCreateIfNew`,
   preventing missed `WRITE` notifications when a file is removed and recreated
   with content. The regression test is `TestFileCreateWriteRace`.
+- **Fork-only: inotify `Close()` no longer removes watches after closing the
+  descriptor**. Upstream calls `inotify_rm_watch` on the closed descriptor
+  number, which another watcher created meanwhile may already own, so it
+  silently loses that watcher's first watch. The regression test is
+  `TestInotifyCloseKeepsOtherWatchers`.
 - **No longer fork-only: kqueue `Close()` fd leak**. This fork previously fixed
   leaked kqueue watch descriptors on `Close()`. Upstream now handles this by
   calling `remove2()` from `Close()`, so the merged fork follows the upstream

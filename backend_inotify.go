@@ -164,16 +164,16 @@ func (w *inotify) Close() error {
 		return nil
 	}
 
-	// Causes any blocking reads to return with an error, provided the file
-	// still supports deadline operations.
+	// Closing the descriptor drops every watch and causes any blocking reads to
+	// return with an error, provided the file still supports deadline
+	// operations. The watches must not be removed afterwards: the descriptor
+	// number may already belong to another inotify instance, so only forget them.
 	err := w.inotifyFile.Close()
 	if err != nil {
 		return err
 	}
 	w.mu.Lock()
-	for name := range w.watches.path {
-		w.remove(name)
-	}
+	w.watches = newWatches()
 	w.mu.Unlock()
 
 	<-w.doneResp // Wait for readEvents() to finish.
