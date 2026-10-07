@@ -1,33 +1,33 @@
-name: 'staticcheck'
+name: "staticcheck"
 on:
   pull_request:
-    paths: ['**.go', 'go.mod', '.github/workflows/*']
+    paths: ["**.go", "go.mod", ".github/workflows/*"]
   push:
-    branches: ['main']
+    branches: ["main"]
 
 jobs:
   staticcheck:
-    name:    'staticcheck'
-    runs-on: 'ubuntu-latest'
-    env:     {cache: 'staticcheck-${{ github.ref }}'}
+    name: "staticcheck"
+    runs-on: "ubuntu-latest"
+    env: { cache: "staticcheck-${{ github.ref }}" }
     steps:
       # Setup
-      - uses: 'actions/checkout@v4'
-      - id:   'cache-restore'
-        uses: 'actions/cache/restore@v4'
+      - uses: "actions/checkout@v4"
+      - id: "cache-restore"
+        uses: "actions/cache/restore@v4"
         with:
-          key: '${{ env.cache }}'
+          key: "${{ env.cache }}"
           path: |
             ${{ runner.temp }}/staticcheck
             /home/runner/.cache/go-build
           restore-keys: |
             staticcheck-${{ github.ref }}
             staticcheck-refs/heads/main
-      - uses: 'actions/setup-go@v5'
-        with: {go-version: '1.26'}
-      - uses: 'actions/cache@v4'
+      - uses: "actions/setup-go@v5"
+        with: { go-version: "1.26" }
+      - uses: "actions/cache@v4"
         with:
-          key: '${{ runner.os }}-staticcheck'
+          key: "${{ runner.os }}-staticcheck"
           path: |
             ${{ runner.temp }}/staticcheck
             ${{ steps.install_go.outputs.GOCACHE || '' }}
@@ -55,16 +55,16 @@ jobs:
           exit $fail
 
       # Store cache
-      - name: 'delete existing cache'
-        if:   '${{ steps.cache-restore.outputs.cache-hit }}'
-        env:  {GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'}
+      - name: "delete existing cache"
+        if: "${{ steps.cache-restore.outputs.cache-hit }}"
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
         continue-on-error: true
         run: |
           gh extension install actions/gh-actions-cache
           gh actions-cache delete "${{ env.cache }}" --confirm
-      - uses: 'actions/cache/save@v4'
+      - uses: "actions/cache/save@v4"
         with:
-          key: '${{ env.cache }}'
+          key: "${{ env.cache }}"
           path: |
             ${{ runner.temp }}/staticcheck
             /home/runner/.cache/go-build
