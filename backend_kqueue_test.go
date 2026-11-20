@@ -7,10 +7,18 @@
 package fsnotify
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
 )
+
+func TestRecursionUnsupported(t *testing.T) {
+	w := newWatcher(t)
+	if err := w.Add(join(t.TempDir(), "...")); !errors.Is(err, ErrRecursionUnsupported) {
+		t.Fatalf("recursive Add: have %v, want %v", err, ErrRecursionUnsupported)
+	}
+}
 
 func TestRemoveState(t *testing.T) {
 	var (

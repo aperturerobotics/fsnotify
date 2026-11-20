@@ -233,8 +233,17 @@ var (
 	//                  many queued events (the fs.inotify.max_queued_events
 	//                  sysctl can be used to increase this).
 	//  - windows:      The buffer size is too small; WithBufferSize() can be used to increase it.
+	//  - fsevents:     The stream coalesced or dropped events below a
+	//                  directory (MustScanSubDirs); the error names it.
 	//  - kqueue, fen:  Not used.
+	//
+	// The watched tree may have changed without an event: a consumer that
+	// mirrors it scans it again.
 	ErrEventOverflow = errors.New("fsnotify: queue or buffer overflow")
+
+	// ErrRecursionUnsupported is returned by Add() and AddWith() for a path
+	// ending in "/..." on a backend that cannot watch a tree.
+	ErrRecursionUnsupported = errors.New("fsnotify: recursive watches not supported with this backend")
 
 	// ErrUnsupported is returned by AddWith() when WithOps() specified an
 	// Unportable event that's not supported on this platform.
@@ -290,7 +299,10 @@ func NewBufferedWatcher(sz uint) (*Watcher, error) {
 //
 // All files in a directory are monitored, including new files that are created
 // after the watcher is started. Subdirectories are not watched (i.e. it's
-// non-recursive).
+// non-recursive), unless the path ends in "/..." (or "\..." on Windows): then
+// the directory and every directory below it are watched, including ones
+// created later. inotify, Windows and FSEvents (macOS built with cgo) support
+// this; the other backends return [ErrRecursionUnsupported].
 //
 // # Watching files
 //
@@ -467,15 +479,10 @@ func withCreate() addOpt {
 	return func(opt *withOpts) { opt.sendCreate = true }
 }
 
-var enableRecurse = false
-
 // Check if this path is recursive (ends with "/..." or "\..."), and return the
 // path with the /... stripped.
 func recursivePath(path string) (string, bool) {
 	path = filepath.Clean(path)
-	if !enableRecurse { // Only enabled in tests for now.
-		return path, false
-	}
 	if filepath.Base(path) == "..." {
 		return filepath.Dir(path), true
 	}

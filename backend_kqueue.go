@@ -262,6 +262,10 @@ func (w *kqueue) AddWith(name string, opts ...addOpt) error {
 			time.Now().Format("15:04:05.000000000"), name)
 	}
 
+	if _, recur := recursivePath(name); recur {
+		return ErrRecursionUnsupported
+	}
+
 	with := getOptions(opts...)
 	if !w.xSupports(with.op) {
 		return fmt.Errorf("%w: %s", xErrUnsupported, with.op)

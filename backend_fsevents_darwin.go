@@ -737,7 +737,7 @@ func goFSEventsCallback(
 		}
 
 		if flag&fseMustScanSubs != 0 {
-			w.sendError(fmt.Errorf("fsnotify: events may have been dropped for %s", path))
+			w.sendError(fmt.Errorf("%w: events may have been dropped for %s", ErrEventOverflow, path))
 		}
 
 		reg, ok := matchFSEventsRegistration(path, regs)

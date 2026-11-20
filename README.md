@@ -115,10 +115,10 @@ FAQ
 No, not unless you are watching the location it was moved to.
 
 ### Are subdirectories watched?
-No, you must add watches for any directory you want to watch (a recursive
-watcher is on the roadmap: [#18]).
-
-[#18]: https://github.com/aperturerobotics/fsnotify/issues/18
+Only when the path ends in `/...`: `w.Add("dir/...")` watches `dir` and every
+directory below it on Linux (inotify), Windows, and macOS built with cgo
+(FSEvents). Other backends return `ErrRecursionUnsupported`; add a watch for
+each directory there.
 
 ### Do I have to watch the Error and Event channels in a goroutine?
 Yes. You can read both channels in the same goroutine using `select` (you don't
