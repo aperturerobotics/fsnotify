@@ -232,10 +232,17 @@ func (w *inotify) AddWith(path string, opts ...addOpt) error {
 	defer w.mu.Unlock()
 	path, recurse := recursivePath(path)
 	if recurse {
-		return filepath.WalkDir(path, func(root string, d fs.DirEntry, err error) error {
+		// Walk the directory a symlinked root points at, and watch each
+		// directory under the given path, as the FSEvents backend names them.
+		target, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return err
+		}
+		return filepath.WalkDir(target, func(dir string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
+			root := filepath.Join(path, strings.TrimPrefix(dir, target))
 			if !d.IsDir() {
 				if root == path {
 					return fmt.Errorf("fsnotify: not a directory: %q", path)

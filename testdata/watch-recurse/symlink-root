@@ -1,0 +1,12 @@
+# Recursively watch a symlink to a dir; events are named under the link.
+require recurse
+require symlink
+
+mkdir -p /dir/sub
+ln -s /dir /link
+
+watch /link/...
+touch /dir/sub/file
+
+Output:
+	create    /link/sub/file
